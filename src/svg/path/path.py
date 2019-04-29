@@ -114,6 +114,9 @@ class CubicBezier(object):
         end_point = self.point(1)
         return segment_length(self, 0, 1, start_point, end_point, error, min_depth, 0)
 
+    def reversed(self):
+        return CubicBezier(self.end, self.control2, self.control1, self.start)
+
 
 class QuadraticBezier(object):
     def __init__(self, start, control, end):
@@ -344,6 +347,9 @@ class Move(object):
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         return 0
 
+    def reversed(self):
+        return self
+
 
 class Path(MutableSequence):
     """A Path is a sequence of path segments"""
@@ -376,7 +382,7 @@ class Path(MutableSequence):
     def reverse(self):
         # Reversing the order of a path would require reversing each element
         # as well. That's not implemented.        
-        raise NotImplementedError
+        return Path(*reversed([s.reversed() for s in self]))
 
     def __len__(self):
         return len(self._segments)
