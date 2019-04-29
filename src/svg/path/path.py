@@ -53,9 +53,16 @@ class Line(object):
         distance = self.end - self.start
         return self.start + distance * pos
 
+    def derivative(self, pos):
+        distance = self.end - self.start
+        return distance
+
     def length(self, error=None, min_depth=None):
         distance = (self.end - self.start)
         return sqrt(distance.real ** 2 + distance.imag ** 2)
+
+    def reversed(self):
+        return Line(self.end, self.start)
 
 
 class CubicBezier(object):
@@ -94,6 +101,12 @@ class CubicBezier(object):
                (3 * (1 - pos) ** 2 * pos * self.control1) + \
                (3 * (1 - pos) * pos ** 2 * self.control2) + \
                (pos ** 3 * self.end)
+
+    def derivative(self, pos):
+        return \
+            -3 * (1 - pos)**2 * self.start + 3*(1-pos)**2 * self.control1 - \
+            6*pos*(1-pos) * self.control1 - 3*pos**2 * self.control2 + \
+            6*pos*(1-pos) * self.control2 + 3*pos**2 * self.end
 
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         """Calculate the length of the path up to a certain position"""
@@ -134,6 +147,11 @@ class QuadraticBezier(object):
     def point(self, pos):
         return (1 - pos) ** 2 * self.start + 2 * (1 - pos) * pos * self.control + \
                pos ** 2 * self.end
+
+    def derivative(self, pos):
+        return self.start * (2 * pos - 2) + \
+            (2 * self.end - 4 * self.control) * pos + \
+            2 * self.control
 
     def length(self, error=None, min_depth=None):
         a = self.start - 2*self.control + self.end
@@ -280,6 +298,9 @@ class Arc(object):
              self.radius.imag + self.center.imag)
         return complex(x, y)
 
+    def derivative(self, pos):
+        raise NotImplementedError
+
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         """The length of an elliptical arc segment requires numerical
         integration, and in that case it's simpler to just do a geometric
@@ -317,6 +338,9 @@ class Move(object):
     def point(self, pos):
         return self.start
 
+    def derivative(self, pos):
+        return 0
+
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         return 0
 
@@ -351,7 +375,7 @@ class Path(MutableSequence):
 
     def reverse(self):
         # Reversing the order of a path would require reversing each element
-        # as well. That's not implemented.
+        # as well. That's not implemented.        
         raise NotImplementedError
 
     def __len__(self):
@@ -384,13 +408,12 @@ class Path(MutableSequence):
         self._length = sum(lengths)
         self._lengths = [each / self._length for each in lengths]
 
-    def point(self, pos, error=ERROR):
-
+    def _find_segment(self, pos, error=ERROR):
         # Shortcuts
         if pos == 0.0:
-            return self._segments[0].point(pos)
+            return self._segments[0], pos
         if pos == 1.0:
-            return self._segments[-1].point(pos)
+            return self._segments[-1], pos
 
         self._calc_lengths(error=error)
         # Find which segment the point we search for is located on:
@@ -400,10 +423,16 @@ class Path(MutableSequence):
             if segment_end >= pos:
                 # This is the segment! How far in on the segment is the point?
                 segment_pos = (pos - segment_start) / (segment_end - segment_start)
-                break
+                return segment, segment_pos
             segment_start = segment_end
 
+    def point(self, pos, error=ERROR):
+        segment, segment_pos = self._find_segment(pos, error)
         return segment.point(segment_pos)
+    
+    def derivative(self, pos, error=ERROR):
+        segment, segment_pos = self._find_segment(pos, error)
+        return segment.derivative(segment_pos)
 
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         self._calc_lengths(error, min_depth)
