@@ -444,6 +444,15 @@ class Path(MutableSequence):
         self._calc_lengths(error, min_depth)
         return self._length
 
+    def lift(self, a, b):
+        """Whether a move segment exist between a and b"""
+        accumulator = 0
+        for segment, length in zip(self._segments, self._lengths):
+            if accumulator >= a and accumulator < b and isinstance(segment, Move):
+                return True
+            accumulator += length
+        return False
+
     def _is_closable(self):
         """Returns true if the end is on the start of a segment"""
         end = self[-1].end
